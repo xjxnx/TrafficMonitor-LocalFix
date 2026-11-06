@@ -35,6 +35,8 @@ namespace OpenHardwareMonitorApi {
         virtual void SetMainboardEnable(bool enable) override;
 
     private:
+        friend class MonitorSensorTests;
+        static bool TryGetSensorValue(ISensor^ sensor, float& value);
         bool GetHardwareTemperature(IHardware^ hardware, float& temperature);
         bool GetCpuTemperature(IHardware^ hardware, float& temperature);
         bool GetGpuUsage(IHardware^ hardware, float& gpu_usage);

@@ -1,146 +1,54 @@
-**简体中文 | [English](./README_en-us.md)**
+# TrafficMonitor LocalFix
 
-[![Badge](https://img.shields.io/badge/link-996.icu-%23FF4D5B.svg?style=flat-square)](https://996.icu/#/en_US)
-[![LICENSE](https://img.shields.io/badge/license-Anti%20996-blue.svg?style=flat-square)](https://github.com/996icu/996.ICU/blob/master/LICENSE)
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/zhongyang219/TrafficMonitor/main.yml?branch=master&label=Release%20CI&logo=github&style=flat-square)](https://github.com/zhongyang219/TrafficMonitor/actions?query=workflow:"Release+CI")
-[![GitHub release](https://img.shields.io/github/release/zhongyang219/TrafficMonitor.svg?style=flat-square)](https://github.com/zhongyang219/TrafficMonitor/releases/latest)
+[English](README_en-us.md) | [上游项目](https://github.com/zhongyang219/TrafficMonitor) | [下载修复版](https://github.com/xjxnx/TrafficMonitor-LocalFix/releases/tag/v1.8.6.1-localfix.1)
 
-<a href="https://hellogithub.com/repository/5ef48af2b2794d4798b17d6539ec7305" target="_blank"><img src="https://api.hellogithub.com/v1/widgets/recommend.svg?rid=5ef48af2b2794d4798b17d6539ec7305&claim_uid=CeVqou2T1dIvfQP" alt="Featured｜HelloGitHub" style="width: 250px; height: 54px;" width="250" height="54" /></a>
+基于 TrafficMonitor 的硬件温度监控修复分支，保留网速、CPU/内存占用、任务栏显示和皮肤功能，修复硬件采集、退出线程和网卡变化时的一批稳定性问题。
 
-# TrafficMonitor 简介
+当前版本：**1.8.6.1 / Local Fix 2026-11-06**。这是社区修复试用版，基于上游提交 `930f17533d6098989ebad62f210aa97d75ef174b`，并非上游作者的正式发行版。
 
-Traffic Monitor是一款用于Windows平台的网速监控悬浮窗软件，可以显示当前网速、CPU及内存利用率，支持嵌入到任务栏显示，支持更换皮肤、历史流量统计等功能。
+## 下载和使用
 
-# 相关链接：
+从 [Release 页面](https://github.com/xjxnx/TrafficMonitor-LocalFix/releases/tag/v1.8.6.1-localfix.1) 下载：
 
-请[点击此处](https://github.com/zhongyang219/TrafficMonitor/releases/latest)下载TrafficMonitor的最新版本。
+- `TrafficMonitor-LocalFix-v1.8.6.1-localfix.1-windows-x64.zip`：Windows x64 便携包，解压即可使用。
+- `TrafficMonitor-LocalFix-v1.8.6.1-localfix.1-source.zip`：对应完整源码。
+- `SHA256SUMS.txt` 和 `build-info.json`：下载校验值与构建来源。
 
-备用链接：[百度网盘下载](https://pan.baidu.com/s/15PMt7s-ASpyDwtS__4cUhg) 提取码：`ou0m`
+1. 退出已经运行的 TrafficMonitor。
+2. 将便携包完整解压到可写文件夹，运行 `TrafficMonitor.exe`，保留旁边的 DLL 和配置文件。
+3. CPU 温度需要另行安装 [官方 PawnIO](https://github.com/namazso/PawnIO.Setup/releases/tag/2.2.0)。安装后重新启动 TrafficMonitor；如果仍显示 `-- °C`，尝试以管理员身份运行。
+4. 需要开机启动时，可在程序设置中启用。替换现有安装前，请备份自己的配置和历史流量数据。
 
-国内用户如果遇到Github下载缓慢的问题，可以[点击此处](https://gitee.com/zhongyang219/TrafficMonitor)转到此项目在Gitee上的页面。
+发布包使用通用默认配置，不包含使用者的网卡名称、流量记录、错误日志或本机安装路径。PawnIO 安装程序单独从官方渠道下载，本项目不捆绑系统驱动安装器。
 
-如果遇到问题，请[点击此处](./Help.md)查看常见问题。
+## 主要修复
 
-你也可以[点击此处](https://github.com/zhongyang219/TrafficMonitor/actions?query=workflow:"Release+CI")下载TrafficMonitor的预发行构建版本。
+- 硬件库更新至 LibreHardwareMonitor **0.9.6**，移除旧 WinRing0 后端，程序包不携带 `.sys` 文件。
+- 硬件初始化、重新配置和关闭归到同一采集线程；使用 Windows 事件唤醒，改善退出和设置时的阻塞问题。
+- 修复网卡表指针初始化、扩容失败处理、刷新同步及接口数量变化检测。
+- 处理缺失或无效传感器、空频率列表、CPU 总负载选择和重复硬盘名称。
+- 硬件错误写入日志，减少反复弹出阻塞对话框；传感器设置列表不再等待忙碌的采集线程。
 
-从1.80版本开始，TrafficMonitor加入了温度监控功能，如果你不需要温度监控功能，并且在使用1.80以上版本中遇到了问题，建议下载不含温度监控的版本（Lite版本）。（在Release页面找到文件名包含`Lite`的版本。）
+## 验证范围
 
-TrafficMonitor依赖于Microsoft Visual C++ 运行环境，如果程序启动时提示“找不到MSVC*.dll”，请点击以下链接下载并安装Microsoft Visual C++ 运行环境。
+已在 Windows 10 x64、Intel i5-10400、NVIDIA RTX 3060 上完成构建和回归。安装官方 PawnIO 2.2.0 后，15 次 CPU 温度采集为 **48.1–50.4°C**，CPU 频率约 4.006GHz，显卡温度约 50–51°C。
 
-[最新支持的 Visual C++ 可再发行程序包下载 | Microsoft Docs](https://docs.microsoft.com/zh-CN/cpp/windows/latest-supported-vc-redist?view=msvc-170)
+线程、网卡缓冲区、模拟传感器和多轮硬件启停测试已通过。完整任务栏交互和 Windows 11 兼容性尚未完成验证，也没有证据证明所有历史崩溃原因均已消除。详细范围见 [LOCAL_FIX.md](LOCAL_FIX.md)。
 
-# 版本说明
+## 编译
 
-TrafficMonitor提供了标准版和Lite版两种版本可用。标准版包含了所有的功能，Lite版本则不包含温度监控、显卡利用率、硬盘利用率等硬件监控功能。标准版运行需要管理员权限，而Lite版本则不需要。
+建议使用 Visual Studio 2022，安装 C++ 桌面开发、MFC、C++/CLI、Windows SDK 和 .NET Framework 4.7.2 开发工具。在 x64 Developer PowerShell 中运行：
 
-如果没有监控温度等硬件信息的需要，建议使用Lite版。
+```powershell
+msbuild TrafficMonitor.sln /m /p:Configuration=Release /p:Platform=x64
+.\tests\run-tests.ps1
+py -3 .\tools\package-release.py --output-dir .\release-artifacts
+```
 
-以下是两个版本功能对比。
+编译输出为 `Bin/x64/Release`。实机温度测试需要支持的硬件和相应驱动；`hardware_smoke` 会输出传感器实际值。保留的上游 Lite CI 通过 GitHub Actions 手动触发。
 
-| 功能                          | 标准版 | Lite版 |
-| ----------------------------- | ------ | ------ |
-| 网速监控                      | ✔      | ✔      |
-| CPU、内存利用率          | ✔      | ✔      |
-| CPU、显卡、硬盘、主板温度监控  | ✔      | ❌      |
-| CPU频率监控 | ✔ | ✔ |
-| 显卡利用率监控                | ✔      | ✔     |
-| 硬盘利用率监控                | ✔      | ✔     |
-| 网络详细信息                  | ✔      | ✔      |
-| 插件系统                      | ✔      | ✔      |
-| 主窗口更换皮肤                | ✔      | ✔      |
-| 需要管理员权限                | 是     | 否     |
+## 来源和许可证
 
-注：从1.86版本开始，TrafficMonitor Lite版也提供了显卡和硬盘利用率监控功能，相比标准版仅少了温度监控功能。后续TrafficMonitor中的温度监控功能将不再维护，TrafficMonitor将不再提供标准版，仅提供Lite版。温度监控功能已经迁移到了[硬件监控插件](https://github.com/zhongyang219/TrafficMonitorPlugins/blob/main/download/plugin_download.md#%E7%A1%AC%E4%BB%B6%E7%9B%91%E6%8E%A7%E6%8F%92%E4%BB%B6)，如果需要使用温度监控功能，请下载硬件监控插件。
+原项目：[zhongyang219/TrafficMonitor](https://github.com/zhongyang219/TrafficMonitor)。原始说明保留在 [README_UPSTREAM.md](README_UPSTREAM.md)。
 
-# 主要特性
-
-* 显示当前实现网络传输速率、CPU和内存占用率
-* 如果电脑有多个网卡，支持自动和手动选择网络连接
-* 查看网络详细信息
-* 支持嵌入到任务栏显示
-* 支持更换皮肤和自定义皮肤
-* 历史流量统计
-* 硬件信息监控
-* 插件系统
-# 使用说明
-
-**[点击这里](https://github.com/zhongyang219/TrafficMonitor/wiki)转到Wiki页面查看关于TrafficMonitor的详细说明文档。**
-
-# 截图
-
-主悬浮窗：
-![](./Screenshots/main1.png)
-
-右键菜单：
-![](./Screenshots/main.png)
-
-任务栏窗口：
-
-![](./Screenshots/taskbar.PNG)
-
-多彩皮肤：
-<img src="./Screenshots/skins.PNG" style="zoom:80%;" />
-
-# 如何使用
-程序启动后在会在屏幕中显示一个显示网速的悬浮窗。在悬浮窗上点击鼠标右键可以弹出右键菜单。
-
-TrafficMonitor支持将信息显示到任务栏。但是TrafficMonitor默认只显示主窗口（悬浮窗），如果需要让它嵌入到任务栏显示，请在右键菜单中选择“显示任务栏窗口”命令。
-
-任务栏窗口支持自定义显示项目，默认情况下只显示网速，如果需要显示CPU和内存利用率等其他信息，请在任务栏窗口右键菜单中选择“显示设置”，在弹出的“显示设置”对话框中勾选需要显示的项目，如下图所示：
-
-<img src="./Screenshots/taskbar_item_settings.png" style="zoom:80%;" />
-
-# 自定义皮肤
-<img src="./Screenshots/selecte_skin.png" style="zoom:80%;" />
-
-在主窗口或通知区图标右键菜单上选择“其他功能”——“更换皮肤”可以打开更换皮肤界面。[点击此处](https://github.com/zhongyang219/TrafficMonitorSkin/blob/master/皮肤下载.md)可以下载更多皮肤。用户还可以根据自己的需要编辑自己的皮肤。
-
-皮肤文件放在程序所在目录的`skins`目录下，每个皮肤被放到单独的文件夹下，文件夹的名称就是皮肤的名称。
-
-其中`background.bmp`和`background_l.bmp`是背景图片，`skin.ini`是皮肤的配置文件，可以通过`skin.ini`指定文本颜色、字体、皮肤作者、每个项目的大小和位置等信息。
-
-从1.80版本开始增加了xml格式的皮肤配置文件`skin.xml`，只有xml格式的皮肤配置文件才支持温度和显卡使用率显示。
-
-从1.85版本开始增加了对png格式背景图片的支持，你可以使用png格式来制作带透明背景的皮肤，背景图片的文件名为`background.png`和`background_l.png`。
-
-详细的皮肤制作教程请点击以下链接：
-
-[皮肤制作教程 · zhongyang219/TrafficMonitor Wiki (github.com)](https://github.com/zhongyang219/TrafficMonitor/wiki/皮肤制作教程)
-
-# 选项设置
-<img src="./Screenshots/option.jpg" style="zoom:80%;" />
-
-在右键菜单选择“选项...”可以进入选项设置。在选项设置对话框中，可以单独设置主窗口和任务栏窗口的文本颜色、字体、背景颜色、网速单位、显示的文本等。
-
-在“常规设置”选项卡中，可以设置是否在程序时自动检查更新，以及是否需要在开机是自动运行。可以设置在什么时候需要发出消息通知。
-
-从1.72版本开始，支持每个项目文本颜色单独设置。勾选“指定每个项目的颜色”后，点击“文本颜色”右边的颜色框，会弹出详细颜色设置的对话框，可以在这里单独指定每个项目的颜色。
-
-# 插件系统
-
-从1.82版本开始增加了插件系统，插件dll必须放在“TrafficMonitor.exe”同级目录的“plugins”目录下。程序启动后，插件会自动加载。你可以在右键菜单“更多功能”——“插件管理”中查看并管理已加载的插件。
-
-关于如何开发TrafficMonitor的说明，请参见[插件开发指南 · zhongyang219/TrafficMonitor Wiki (github.com)](https://github.com/zhongyang219/TrafficMonitor/wiki/插件开发指南)。
-
-要下载TrafficMonitor插件，请[点击这里](https://github.com/zhongyang219/TrafficMonitorPlugins/blob/main/download/plugin_download.md)。
-
-# 关于硬件监控功能
-
-从1.80版本开始，TrafficMonitor加入了硬件监控功能（包括温度监控和显卡使用率监控、CPU频率监控），它使用了第三方开源库[LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor)。如果你在使用温度监控功能时遇到了问题，请[点击这里](./Help.md#13-关于trafficmonitor温度监控的问题)。
-
-需要注意的是，温度监控功能默认是关闭的，如果你要使用TrafficMonitor的温度监控功能，请到[“选项设置”-“常规设置”-“硬件监控”](https://github.com/zhongyang219/TrafficMonitor/wiki/选项设置#硬件监控)中开启。
-
-**注意：硬件监控功能（包括温度监控和显卡使用率监控）可能存在一些问题，它可能会占用更多的CPU和内存。据部分用户反馈，开启温度功能后会导致程序崩溃和系统死机等问题，请在知晓以上风险后再决定开启硬件监控功能。否则，请不要使用硬件监控功能。**
-
-# 更新日志
-
-**[点击此处查看更新日志](./UpdateLog/update_log.md)**
-
-# 声明
-
-域名`www.trafficmonitor.cn`和作者本人**没有任何关系**，TrafficMonitor目前并没有官网，任何所谓的“TrafficMonitor官网”都是盗版网站，请不要访问此类网站，也不要通过此类网站下载TrafficMonitor。TrafficMonitor仅通过以下渠道向用户提供：
-
-* [GitHub页面（github.com/zhongyang219/TrafficMonitor）](https://github.com/zhongyang219/TrafficMonitor)
-* [Gitee页面（gitee.com/zhongyang219/TrafficMonitor）](https://gitee.com/zhongyang219/TrafficMonitor)
-* [作者本人的百度网盘共享链接](https://pan.baidu.com/s/15PMt7s-ASpyDwtS__4cUhg) 提取码：`ou0m`
-
+保留上游 [LICENSE](LICENSE)、[LICENSE_CN](LICENSE_CN) 和第三方 [许可证与声明](licenses)。LibreHardwareMonitor 使用官方 v0.9.6 二进制；其源码及 PawnIO 模块来源见 [LOCAL_FIX.md](LOCAL_FIX.md)。

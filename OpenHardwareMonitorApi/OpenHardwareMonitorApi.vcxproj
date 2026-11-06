@@ -232,4 +232,11 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
+  <Target Name="CopyHardwareRuntime" AfterTargets="Build">
+    <ItemGroup>
+      <HardwareRuntime Include="$(ProjectDir)runtime\*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(HardwareRuntime)" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)runtime\TrafficMonitor.exe.config" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+  </Target>
 </Project>

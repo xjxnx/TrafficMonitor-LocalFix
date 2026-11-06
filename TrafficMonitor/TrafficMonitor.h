@@ -14,6 +14,7 @@
 #include "SimpleXML.h"
 #include "TaskbarDefaultStyle.h"
 #include <map>
+#include <atomic>
 #include "OpenHardwareMonitor/OpenHardwareMonitorApi.h"
 #include "PluginManager.h"
 #include "Nullable.hpp"
@@ -101,6 +102,7 @@ public:
 #ifndef WITHOUT_TEMPERATURE
     //OpenHardwareMonitor 接口的指针
     std::shared_ptr<OpenHardwareMonitorApi::IOpenHardwareMonitor> m_pMonitor{};
+    std::atomic<unsigned int> m_hardware_monitor_request{0};
 #endif // !WITHOUT_TEMPERATURE
 
     CCriticalSection m_minitor_lib_critical;        //用于访问OpenHardwareMonitor进行线程同步的临界区对象
@@ -128,7 +130,7 @@ public:
     void CheckUpdateInThread(bool message); //在后台线程中检查更新
     //启动时检查更新线程函数
     static UINT CheckUpdateThreadFunc(LPVOID lpParam);
-    static UINT InitOpenHardwareMonitorLibThreadFunc(LPVOID lpParam);
+    void RefreshHardwareMonitorOnWorker();
 
     bool SetAutoRun(bool auto_run, bool task_scheduler);
     bool GetAutoRun(wstring* auto_run_path, bool task_scheduler);        //判断是否开机自动进行，如果是，将开机自动运行的路径写入auto_run_path

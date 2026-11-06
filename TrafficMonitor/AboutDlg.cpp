@@ -103,6 +103,7 @@ BOOL CAboutDlg::OnInitDialog()
     str_lite = CCommon::LoadText(_T(" ("), IDS_WITHOUT_TEMPERATURE, _T(")"));
 #endif
     version_info = CCommon::StringFormat(version_info, { str_lite, VERSION });
+    version_info += L" (Local Fix 2026-11-06)";
 
 #ifdef COMPILE_FOR_WINXP
     version_info += _T(" (For WinXP)");

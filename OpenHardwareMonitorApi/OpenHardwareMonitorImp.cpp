@@ -28,6 +28,7 @@ namespace OpenHardwareMonitorApi
 
     std::shared_ptr<IOpenHardwareMonitor> CreateInstance()
     {
+        error_message.clear();
         std::shared_ptr<IOpenHardwareMonitor> pMonitor;
         try
         {
@@ -108,37 +109,59 @@ namespace OpenHardwareMonitorApi
 
     void COpenHardwareMonitor::SetCpuEnable(bool enable)
     {
-        MonitorGlobal::Instance()->computer->IsCpuEnabled = enable;
+        try { MonitorGlobal::Instance()->computer->IsCpuEnabled = enable; }
+        catch (System::Exception^ e) { error_message = ClrStringToStdWstring(e->Message); }
     }
 
     void COpenHardwareMonitor::SetGpuEnable(bool enable)
     {
-        MonitorGlobal::Instance()->computer->IsGpuEnabled = enable;
+        try { MonitorGlobal::Instance()->computer->IsGpuEnabled = enable; }
+        catch (System::Exception^ e) { error_message = ClrStringToStdWstring(e->Message); }
     }
 
     void COpenHardwareMonitor::SetHddEnable(bool enable)
     {
-        MonitorGlobal::Instance()->computer->IsStorageEnabled = enable;
+        try { MonitorGlobal::Instance()->computer->IsStorageEnabled = enable; }
+        catch (System::Exception^ e) { error_message = ClrStringToStdWstring(e->Message); }
     }
 
     void COpenHardwareMonitor::SetMainboardEnable(bool enable)
     {
-        MonitorGlobal::Instance()->computer->IsMotherboardEnabled = enable;
+        try { MonitorGlobal::Instance()->computer->IsMotherboardEnabled = enable; }
+        catch (System::Exception^ e) { error_message = ClrStringToStdWstring(e->Message); }
+    }
+
+    bool COpenHardwareMonitor::TryGetSensorValue(ISensor^ sensor, float& value)
+    {
+        if (sensor == nullptr)
+            return false;
+        auto snapshot = sensor->Value;
+        if (!snapshot.HasValue)
+            return false;
+        value = snapshot.Value;
+        return !System::Single::IsNaN(value) && !System::Single::IsInfinity(value);
     }
 
     bool COpenHardwareMonitor::GetCPUFreq(IHardware^ hardware, float& freq) {
+        m_all_cpu_clock.clear();
         for (int i = 0; i < hardware->Sensors->Length; i++)
         {
             if (hardware->Sensors[i]->SensorType == SensorType::Clock)
             {
                 String^ name = hardware->Sensors[i]->Name;
-                if (name != L"Bus Speed")
-                    m_all_cpu_clock[ClrStringToStdWstring(name)] = Convert::ToDouble(hardware->Sensors[i]->Value);
+                float value;
+                if (name != L"Bus Speed" && TryGetSensorValue(hardware->Sensors[i], value) && value > 0)
+                    m_all_cpu_clock[ClrStringToStdWstring(name)] = value;
             }
         }
         float sum{};
         for (auto i : m_all_cpu_clock)
             sum += i.second;
+        if (m_all_cpu_clock.empty())
+        {
+            freq = -1;
+            return false;
+        }
         freq = sum / m_all_cpu_clock.size() / 1000.0;
         return true;
     }
@@ -150,10 +173,10 @@ namespace OpenHardwareMonitorApi
             if (hardware->Sensors[i]->SensorType == SensorType::Load)
             {
                 String^ name = hardware->Sensors[i]->Name;
-                if (name != L"CPU Total")
+                if (name == L"CPU Total")
                 {
-                    cpu_usage = Convert::ToDouble(hardware->Sensors[i]->Value);
-                    return true;
+                    if (TryGetSensorValue(hardware->Sensors[i], cpu_usage))
+                        return true;
                 }
             }
         }
@@ -182,7 +205,9 @@ namespace OpenHardwareMonitorApi
             //找到温度传感器
             if (hardware->Sensors[i]->SensorType == SensorType::Temperature)
             {
-                float cur_temperture = Convert::ToDouble(hardware->Sensors[i]->Value);
+                float cur_temperture;
+                if (!TryGetSensorValue(hardware->Sensors[i], cur_temperture))
+                    continue;
                 all_temperature.push_back(cur_temperture);
                 if (hardware->Sensors[i]->Name == temperature_name) //如果找到了名称为temperature_name的温度传感器，则将温度保存到core_temperature里
                     core_temperature = cur_temperture;
@@ -222,7 +247,9 @@ namespace OpenHardwareMonitorApi
             {
                 String^ name = hardware->Sensors[i]->Name;
                 //保存每个CPU传感器的温度
-                m_all_cpu_temperature[ClrStringToStdWstring(name)] = Convert::ToDouble(hardware->Sensors[i]->Value);
+                float value;
+                if (TryGetSensorValue(hardware->Sensors[i], value))
+                    m_all_cpu_temperature[ClrStringToStdWstring(name)] = value;
             }
         }
         //计算平均温度
@@ -238,13 +265,15 @@ namespace OpenHardwareMonitorApi
 
     bool COpenHardwareMonitor::GetGpuUsage(IHardware^ hardware, float& gpu_usage)
     {
-        float usage_max = 0;
+        float usage_max = -1;
         for (int i = 0; i < hardware->Sensors->Length; i++)
         {
             //找到负载
             if (hardware->Sensors[i]->SensorType == SensorType::Load)
             {
-                float cur_gpu_usage = Convert::ToDouble(hardware->Sensors[i]->Value);
+                float cur_gpu_usage;
+                if (!TryGetSensorValue(hardware->Sensors[i], cur_gpu_usage))
+                    continue;
                 if (hardware->Sensors[i]->Name == L"GPU Core")
                 {
                     gpu_usage = cur_gpu_usage;
@@ -257,7 +286,7 @@ namespace OpenHardwareMonitorApi
             }
         }
         gpu_usage = usage_max;
-        return true;
+        return usage_max >= 0;
     }
 
     bool COpenHardwareMonitor::GetHddUsage(IHardware^ hardware, float& hdd_usage)
@@ -269,8 +298,8 @@ namespace OpenHardwareMonitorApi
             {
                 if (hardware->Sensors[i]->Name == L"Total Activity")
                 {
-                    hdd_usage = Convert::ToDouble(hardware->Sensors[i]->Value);
-                    return true;
+                    if (TryGetSensorValue(hardware->Sensors[i], hdd_usage))
+                        return true;
                 }
             }
         }
@@ -284,7 +313,8 @@ namespace OpenHardwareMonitorApi
 
     COpenHardwareMonitor::~COpenHardwareMonitor()
     {
-        MonitorGlobal::Instance()->UnInit();
+        try { MonitorGlobal::Instance()->UnInit(); }
+        catch (System::Exception^ e) { error_message = ClrStringToStdWstring(e->Message); }
     }
 
     void COpenHardwareMonitor::ResetAllValues()
@@ -300,35 +330,19 @@ namespace OpenHardwareMonitorApi
         m_gpu_intel_usage = -1;
         m_all_hdd_temperature.clear();
         m_all_hdd_usage.clear();
+        m_all_cpu_temperature.clear();
+        m_all_cpu_clock.clear();
         m_cpu_freq = -1;
         m_cpu_usage = -1;
     }
 
     void COpenHardwareMonitor::InsertValueToMap(std::map<std::wstring, float>& value_map, const std::wstring& key, float value)
     {
-        auto iter = value_map.find(key);
-        if (iter == value_map.end())
-        {
-            value_map[key] = value;
-        }
-        else
-        {
-            std::wstring key_exist = iter->first;
-            size_t index = key_exist.rfind(L'#');   //查找字符串是否含有#号
-            if (index != std::wstring::npos)
-            {
-                //取到#号后面的数字，将其加1
-                int num = _wtoi(key_exist.substr(index + 1).c_str());
-                num++;
-                key_exist = key_exist.substr(0, index + 1);
-                key_exist += std::to_wstring(num);
-            }
-            else //没有#号则在末尾添加" #1"
-            {
-                key_exist += L" #1";
-            }
-            value_map[key_exist] = value;
-        }
+        std::wstring unique_key = key;
+        unsigned int suffix = 1;
+        while (value_map.find(unique_key) != value_map.end())
+            unique_key = key + L" #" + std::to_wstring(suffix++);
+        value_map[unique_key] = value;
     }
 
     void COpenHardwareMonitor::GetHardwareInfo()
@@ -412,14 +426,30 @@ namespace OpenHardwareMonitorApi
 
     void MonitorGlobal::Init()
     {
+        if (computer != nullptr)
+            return;
         updateVisitor = gcnew UpdateVisitor();
         computer = gcnew Computer();
-        computer->Open();
+        try { computer->Open(); }
+        catch (System::Exception^)
+        {
+            try { computer->Close(); } catch (System::Exception^) {}
+            computer = nullptr;
+            updateVisitor = nullptr;
+            throw;
+        }
     }
 
     void MonitorGlobal::UnInit()
     {
-        computer->Close();
+        if (computer == nullptr)
+            return;
+        try { computer->Close(); }
+        finally
+        {
+            computer = nullptr;
+            updateVisitor = nullptr;
+        }
     }
 
 }

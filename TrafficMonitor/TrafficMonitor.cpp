@@ -620,19 +620,32 @@ UINT CTrafficMonitorApp::CheckUpdateThreadFunc(LPVOID lpParam)
     return 0;
 }
 
-UINT CTrafficMonitorApp::InitOpenHardwareMonitorLibThreadFunc(LPVOID lpParam)
+void CTrafficMonitorApp::RefreshHardwareMonitorOnWorker()
 {
 #ifndef WITHOUT_TEMPERATURE
+    const unsigned int request = m_hardware_monitor_request.exchange(0);
+    if ((request & 0x80000000u) == 0)
+        return;
     CSingleLock sync(&theApp.m_minitor_lib_critical, TRUE);
-    theApp.m_pMonitor = OpenHardwareMonitorApi::CreateInstance();
-    if (theApp.m_pMonitor == nullptr)
+    const unsigned int items = request & 0x7fffffffu;
+    if (items == 0)
     {
-        AfxMessageBox(OpenHardwareMonitorApi::GetErrorMessage().c_str(), MB_ICONERROR | MB_OK);
+        m_pMonitor.reset();
+        return;
     }
-    //设置硬件监控的启用状态
-    theApp.UpdateOpenHardwareMonitorEnableState();
+    if (m_pMonitor == nullptr)
+        m_pMonitor = OpenHardwareMonitorApi::CreateInstance();
+    if (m_pMonitor != nullptr)
+    {
+        m_pMonitor->SetCpuEnable((items & HI_CPU) != 0);
+        m_pMonitor->SetGpuEnable((items & HI_GPU) != 0);
+        m_pMonitor->SetHddEnable((items & HI_HDD) != 0);
+        m_pMonitor->SetMainboardEnable((items & HI_MBD) != 0);
+    }
+    const auto error = OpenHardwareMonitorApi::GetErrorMessage();
+    if (!error.empty())
+        CCommon::WriteLog(error.c_str(), m_log_path.c_str());
 #endif
-    return 0;
 }
 
 bool  CTrafficMonitorApp::SetAutoRun(bool auto_run, bool task_scheduler)
@@ -982,9 +995,9 @@ BOOL CTrafficMonitorApp::InitInstance()
     m_no_multistart_warning = ini.GetBool(_T("other"), _T("no_multistart_warning"), false);
     LPCTSTR mutex_name{};
 #ifdef _DEBUG
-    mutex_name = _T("TrafficMonitor-e8Ahk24HP6JC8hDy");
+    mutex_name = _T("TrafficMonitor-LocalFix-e8Ahk24HP6JC8hDy");
 #else
-    mutex_name = _T("TrafficMonitor-1419J3XLKL1w8OZc");
+    mutex_name = _T("TrafficMonitor-LocalFix-1419J3XLKL1w8OZc");
 #endif
     HANDLE hMutex = ::CreateMutex(NULL, TRUE, mutex_name);
     if (hMutex != NULL)
@@ -1138,7 +1151,9 @@ BOOL CTrafficMonitorApp::InitInstance()
 void CTrafficMonitorApp::InitOpenHardwareLibInThread()
 {
 #ifndef WITHOUT_TEMPERATURE
-    AfxBeginThread(InitOpenHardwareMonitorLibThreadFunc, NULL);
+    // The single sampling worker owns initialization, reconfiguration and close.
+    // Opening sensors can be slow and must not happen on the UI thread.
+    m_hardware_monitor_request.store(m_general_data.hardware_monitor_item | 0x80000000u);
 #endif
 }
 
@@ -1146,14 +1161,7 @@ void CTrafficMonitorApp::InitOpenHardwareLibInThread()
 void CTrafficMonitorApp::UpdateOpenHardwareMonitorEnableState()
 {
 #ifndef WITHOUT_TEMPERATURE
-    if (m_pMonitor != nullptr)
-    {
-        CSingleLock sync(&theApp.m_minitor_lib_critical, TRUE);
-        m_pMonitor->SetCpuEnable(m_general_data.IsHardwareEnable(HI_CPU));
-        m_pMonitor->SetGpuEnable(m_general_data.IsHardwareEnable(HI_GPU));
-        m_pMonitor->SetHddEnable(m_general_data.IsHardwareEnable(HI_HDD));
-        m_pMonitor->SetMainboardEnable(m_general_data.IsHardwareEnable(HI_MBD));
-    }
+    InitOpenHardwareLibInThread();
 #endif
 }
 

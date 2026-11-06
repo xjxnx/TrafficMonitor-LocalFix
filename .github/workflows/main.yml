@@ -1,7 +1,5 @@
-name: Release CI
+name: Upstream Lite CI (manual)
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
 
 jobs:

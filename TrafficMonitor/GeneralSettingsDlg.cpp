@@ -403,9 +403,10 @@ BOOL CGeneralSettingsDlg::OnInitDialog()
     CheckDlgButton(IDC_HDD_CHECK, m_data.IsHardwareEnable(HI_HDD));
     CheckDlgButton(IDC_MBD_CHECK, m_data.IsHardwareEnable(HI_MBD));
 
-    if (theApp.m_pMonitor != nullptr)
+    m_select_cpu_combo.AddString(CCommon::LoadText(IDS_AVREAGE_TEMPERATURE));
+    CSingleLock monitor_lock(&theApp.m_minitor_lib_critical, FALSE);
+    if (monitor_lock.Lock(0) && theApp.m_pMonitor != nullptr)
     {
-        CSingleLock sync(&theApp.m_minitor_lib_critical, TRUE);
         //初始化选择硬盘下拉列表
         if (!CTrafficMonitorDlg::Instance()->IsGetDiskUsageByPdh())
         {
@@ -415,14 +416,11 @@ BOOL CGeneralSettingsDlg::OnInitDialog()
             m_hard_disk_combo.SetCurSel(cur_index);
         }
         //初始化选择CPU下拉列表
-        m_select_cpu_combo.AddString(CCommon::LoadText(IDS_AVREAGE_TEMPERATURE));
         for (const auto& cpu_item : theApp.m_pMonitor->AllCpuTemperature())
             m_select_cpu_combo.AddString(cpu_item.first.c_str());
-        int cur_index = m_select_cpu_combo.FindString(-1, m_data.cpu_core_name.c_str());
-        if (cur_index < 0)
-            cur_index = 0;
-        m_select_cpu_combo.SetCurSel(cur_index);
     }
+    int cpu_index = m_select_cpu_combo.FindString(-1, m_data.cpu_core_name.c_str());
+    m_select_cpu_combo.SetCurSel(cpu_index < 0 ? 0 : cpu_index);
 #endif
 
     //不含温度监控的版本，禁用温度相关的控件
