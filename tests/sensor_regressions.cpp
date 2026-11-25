@@ -38,6 +38,24 @@ namespace OpenHardwareMonitorApi
                 gcnew FakeSensor(SensorType::Temperature, L"Core #2", 52.0f) });
             Check(monitor.GetCpuTemperature(temperatures, value) && value == 52.0f, "missing temperatures are not averaged as zero");
             Check(!monitor.GetGpuUsage(empty, value) && value == -1, "unavailable GPU load is not zero load");
+            auto gpu = gcnew FakeHardware(gcnew array<ISensor^> {
+                gcnew FakeSensor(SensorType::Temperature, L"GPU Core", 61.0f) });
+            gpu->HardwareType = HardwareType::GpuNvidia;
+            auto devices = gcnew System::Collections::Generic::List<IHardware^>();
+            devices->Add(gpu);
+            devices->Add(temperatures);
+            auto visitor = gcnew UpdateVisitor();
+            monitor.ResetAllValues();
+            monitor.ReadDevices(devices, visitor);
+            Check(monitor.GpuTemperature() == 61.0f, "healthy GPU sample");
+            gpu->FailUpdate = true;
+            monitor.ResetAllValues();
+            monitor.ReadDevices(devices, visitor);
+            Check(monitor.GpuTemperature() == -1 && monitor.CpuTemperature() == 52.0f && !GetErrorMessage().empty(), "GPU failure leaves fresh CPU sample and no stale GPU value");
+            gpu->FailUpdate = false;
+            monitor.ResetAllValues();
+            monitor.ReadDevices(devices, visitor);
+            Check(monitor.GpuTemperature() == 61.0f && monitor.CpuTemperature() == 52.0f && GetErrorMessage().empty(), "GPU resumes after recovery");
             std::map<std::wstring, float> disks;
             monitor.InsertValueToMap(disks, L"Identical disk", 40);
             monitor.InsertValueToMap(disks, L"Identical disk", 41);

@@ -624,10 +624,19 @@ void CTrafficMonitorApp::RefreshHardwareMonitorOnWorker()
 {
 #ifndef WITHOUT_TEMPERATURE
     const unsigned int request = m_hardware_monitor_request.exchange(0);
-    if ((request & 0x80000000u) == 0)
+    const bool requested = (request & 0x80000000u) != 0;
+    if (requested)
+    {
+        m_active_hardware_items = request & 0x7fffffffu;
+        m_sensor_recovery = {};
+    }
+    const bool reopen = !requested && m_active_hardware_items != 0 && m_sensor_recovery.TakeRetry(GetTickCount64());
+    if (!requested && !reopen)
         return;
     CSingleLock sync(&theApp.m_minitor_lib_critical, TRUE);
-    const unsigned int items = request & 0x7fffffffu;
+    if (reopen)
+        m_pMonitor.reset();
+    const unsigned int items = m_active_hardware_items;
     if (items == 0)
     {
         m_pMonitor.reset();
@@ -643,7 +652,7 @@ void CTrafficMonitorApp::RefreshHardwareMonitorOnWorker()
         m_pMonitor->SetMainboardEnable((items & HI_MBD) != 0);
     }
     const auto error = OpenHardwareMonitorApi::GetErrorMessage();
-    if (!error.empty())
+    if (!error.empty() && m_sensor_recovery.Failed())
         CCommon::WriteLog(error.c_str(), m_log_path.c_str());
 #endif
 }

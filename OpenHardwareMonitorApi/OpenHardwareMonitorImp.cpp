@@ -2,8 +2,11 @@
 
 #include "stdafx.h"
 
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #include "OpenHardwareMonitorImp.h"
 #include <vector>
+#include <vcclr.h>
 
 namespace OpenHardwareMonitorApi
 {
@@ -319,6 +322,7 @@ namespace OpenHardwareMonitorApi
 
     void COpenHardwareMonitor::ResetAllValues()
     {
+        error_message.clear();
         m_cpu_temperature = -1;
         m_gpu_nvidia_temperature = -1;
         m_gpu_ati_temperature = -1;
@@ -345,67 +349,118 @@ namespace OpenHardwareMonitorApi
         value_map[unique_key] = value;
     }
 
+    // Keep native driver faults local to the device whose update invoked the driver.
+    struct DeviceUpdate
+    {
+        gcroot<IHardware^> hardware;
+        gcroot<UpdateVisitor^> visitor;
+    };
+
+    static void __cdecl VisitDevice(DeviceUpdate* update)
+    {
+        IHardware^ hardware = update->hardware;
+        hardware->Accept(update->visitor);
+    }
+
+#pragma managed(push, off)
+    static DWORD GuardDeviceUpdate(void (__cdecl *visit)(DeviceUpdate*), DeviceUpdate* update)
+    {
+        __try
+        {
+            visit(update);
+            return ERROR_SUCCESS;
+        }
+        __except ((GetExceptionCode() == EXCEPTION_ACCESS_VIOLATION || GetExceptionCode() == EXCEPTION_IN_PAGE_ERROR)
+            ? EXCEPTION_EXECUTE_HANDLER : EXCEPTION_CONTINUE_SEARCH)
+        {
+            return GetExceptionCode();
+        }
+    }
+#pragma managed(pop)
+
+    void COpenHardwareMonitor::ReadDevice(IHardware^ hardware)
+    {
+        switch (hardware->HardwareType)
+        {
+        case HardwareType::Cpu:
+            if (m_cpu_temperature < 0)
+                GetCpuTemperature(hardware, m_cpu_temperature);
+            if (m_cpu_freq < 0)
+                GetCPUFreq(hardware, m_cpu_freq);
+            if (m_cpu_usage < 0)
+                GetCpuUsage(hardware, m_cpu_usage);
+            break;
+        case HardwareType::GpuNvidia:
+            if (m_gpu_nvidia_temperature < 0)
+                GetHardwareTemperature(hardware, m_gpu_nvidia_temperature);
+            if (m_gpu_nvidia_usage < 0)
+                GetGpuUsage(hardware, m_gpu_nvidia_usage);
+            break;
+        case HardwareType::GpuAmd:
+            if (m_gpu_ati_temperature < 0)
+                GetHardwareTemperature(hardware, m_gpu_ati_temperature);
+            if (m_gpu_ati_usage < 0)
+                GetGpuUsage(hardware, m_gpu_ati_usage);
+            break;
+        case HardwareType::GpuIntel:
+            if (m_gpu_intel_temperature < 0)
+                GetHardwareTemperature(hardware, m_gpu_intel_temperature);
+            if (m_gpu_intel_usage < 0)
+                GetGpuUsage(hardware, m_gpu_intel_usage);
+            break;
+        case HardwareType::Storage:
+        {
+            float cur_hdd_temperature = -1;
+            GetHardwareTemperature(hardware, cur_hdd_temperature);
+            //m_all_hdd_temperature[ClrStringToStdWstring(hardware->Name)] = cur_hdd_temperature;
+            InsertValueToMap(m_all_hdd_temperature, ClrStringToStdWstring(hardware->Name), cur_hdd_temperature);
+            float cur_hdd_usage = -1;
+            GetHddUsage(hardware, cur_hdd_usage);
+            //m_all_hdd_usage[ClrStringToStdWstring(hardware->Name)] = cur_hdd_usage;
+            InsertValueToMap(m_all_hdd_usage, ClrStringToStdWstring(hardware->Name), cur_hdd_usage);
+            if (m_hdd_temperature < 0)
+                m_hdd_temperature = cur_hdd_temperature;
+        }
+        break;
+        case HardwareType::Motherboard:
+            if (m_main_board_temperature < 0)
+                GetHardwareTemperature(hardware, m_main_board_temperature);
+            break;
+        default:
+            break;
+        }
+    }
+
+    void COpenHardwareMonitor::ReadDevices(System::Collections::Generic::IList<IHardware^>^ devices, UpdateVisitor^ visitor)
+    {
+        for each (IHardware^ hardware in devices)
+        {
+            try
+            {
+                DeviceUpdate update;
+                update.hardware = hardware;
+                update.visitor = visitor;
+                DWORD code = GuardDeviceUpdate(&VisitDevice, &update);
+                if (code == ERROR_SUCCESS)
+                    ReadDevice(hardware);
+                else if (error_message.empty())
+                    error_message = ClrStringToStdWstring(String::Format(L"{0}: sensor update failed (0x{1:X8})", hardware->HardwareType, code));
+            }
+            catch (System::Exception^ e)
+            {
+                if (error_message.empty())
+                    error_message = ClrStringToStdWstring(String::Format(L"{0}: {1}", hardware->HardwareType, e->Message));
+            }
+        }
+    }
+
     void COpenHardwareMonitor::GetHardwareInfo()
     {
         ResetAllValues();
-        error_message.clear();
         try
         {
-            auto computer = MonitorGlobal::Instance()->computer;
-            computer->Accept(MonitorGlobal::Instance()->updateVisitor);
-            for (int i = 0; i < computer->Hardware->Count; i++)
-            {
-                //查找硬件类型
-                switch (computer->Hardware[i]->HardwareType)
-                {
-                case HardwareType::Cpu:
-                    if (m_cpu_temperature < 0)
-                        GetCpuTemperature(computer->Hardware[i], m_cpu_temperature);
-                    if (m_cpu_freq < 0)
-                        GetCPUFreq(computer->Hardware[i], m_cpu_freq);
-                    if (m_cpu_usage < 0)
-                        GetCpuUsage(computer->Hardware[i], m_cpu_usage);
-                    break;
-                case HardwareType::GpuNvidia:
-                    if (m_gpu_nvidia_temperature < 0)
-                        GetHardwareTemperature(computer->Hardware[i], m_gpu_nvidia_temperature);
-                    if (m_gpu_nvidia_usage < 0)
-                        GetGpuUsage(computer->Hardware[i], m_gpu_nvidia_usage);
-                    break;
-                case HardwareType::GpuAmd:
-                    if (m_gpu_ati_temperature < 0)
-                        GetHardwareTemperature(computer->Hardware[i], m_gpu_ati_temperature);
-                    if (m_gpu_ati_usage < 0)
-                        GetGpuUsage(computer->Hardware[i], m_gpu_ati_usage);
-                    break;
-                case HardwareType::GpuIntel:
-                    if (m_gpu_intel_temperature < 0)
-                        GetHardwareTemperature(computer->Hardware[i], m_gpu_intel_temperature);
-                    if (m_gpu_intel_usage < 0)
-                        GetGpuUsage(computer->Hardware[i], m_gpu_intel_usage);
-                    break;
-                case HardwareType::Storage:
-                {
-                    float cur_hdd_temperature = -1;
-                    GetHardwareTemperature(computer->Hardware[i], cur_hdd_temperature);
-                    //m_all_hdd_temperature[ClrStringToStdWstring(computer->Hardware[i]->Name)] = cur_hdd_temperature;
-                    InsertValueToMap(m_all_hdd_temperature, ClrStringToStdWstring(computer->Hardware[i]->Name), cur_hdd_temperature);
-                    float cur_hdd_usage = -1;
-                    GetHddUsage(computer->Hardware[i], cur_hdd_usage);
-                    //m_all_hdd_usage[ClrStringToStdWstring(computer->Hardware[i]->Name)] = cur_hdd_usage;
-                    InsertValueToMap(m_all_hdd_usage, ClrStringToStdWstring(computer->Hardware[i]->Name), cur_hdd_usage);
-                    if (m_hdd_temperature < 0)
-                        m_hdd_temperature = cur_hdd_temperature;
-                }
-                break;
-                case HardwareType::Motherboard:
-                    if (m_main_board_temperature < 0)
-                        GetHardwareTemperature(computer->Hardware[i], m_main_board_temperature);
-                    break;
-                default:
-                    break;
-                }
-            }
+            auto monitor = MonitorGlobal::Instance();
+            ReadDevices(monitor->computer->Hardware, monitor->updateVisitor);
         }
         catch (System::Exception^ e)
         {

@@ -29,8 +29,9 @@ namespace TrafficMonitorTests
     }
     public class FakeHardware : IHardware
     {
-        public FakeHardware(ISensor[] sensors) { Sensors = sensors; }
-        public HardwareType HardwareType { get { return HardwareType.Cpu; } }
+        public FakeHardware(ISensor[] sensors) { Sensors = sensors; HardwareType = HardwareType.Cpu; }
+        public HardwareType HardwareType { get; set; }
+        public bool FailUpdate { get; set; }
         public Identifier Identifier { get { return null; } }
         public string Name { get; set; }
         public IHardware Parent { get { return null; } }
@@ -40,7 +41,7 @@ namespace TrafficMonitorTests
         public event SensorEventHandler SensorAdded { add { } remove { } }
         public event SensorEventHandler SensorRemoved { add { } remove { } }
         public string GetReport() { return "Test fixture"; }
-        public void Update() { }
+        public void Update() { if (FailUpdate) throw new InvalidOperationException("simulated device reset"); }
         public void Accept(IVisitor visitor) { visitor.VisitHardware(this); }
         public void Traverse(IVisitor visitor) { }
     }

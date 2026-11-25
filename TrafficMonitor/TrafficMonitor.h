@@ -15,6 +15,7 @@
 #include "TaskbarDefaultStyle.h"
 #include <map>
 #include <atomic>
+#include "HardwareMonitorRecovery.h"
 #include "OpenHardwareMonitor/OpenHardwareMonitorApi.h"
 #include "PluginManager.h"
 #include "Nullable.hpp"
@@ -103,6 +104,8 @@ public:
     //OpenHardwareMonitor 接口的指针
     std::shared_ptr<OpenHardwareMonitorApi::IOpenHardwareMonitor> m_pMonitor{};
     std::atomic<unsigned int> m_hardware_monitor_request{0};
+    unsigned int m_active_hardware_items{};
+    HardwareMonitorRecovery m_sensor_recovery;
 #endif // !WITHOUT_TEMPERATURE
 
     CCriticalSection m_minitor_lib_critical;        //用于访问OpenHardwareMonitor进行线程同步的临界区对象

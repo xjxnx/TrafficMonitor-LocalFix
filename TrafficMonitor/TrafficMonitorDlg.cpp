@@ -1449,27 +1449,33 @@ void CTrafficMonitorDlg::DoMonitorAcquisition()
     if (IsTemperatureNeeded() && theApp.m_pMonitor != nullptr)
     {
         CSingleLock sync(&theApp.m_minitor_lib_critical, TRUE);
-        CString error_info = CCommon::LoadText(IDS_HARDWARE_INFO_ACQUIRE_FAILED_ERROR);
-
-        auto getHardwareInfo = [&]() {
+        auto sample = []() -> DWORD {
             __try
             {
                 theApp.m_pMonitor->GetHardwareInfo();
+                return ERROR_SUCCESS;
             }
             __except (EXCEPTION_EXECUTE_HANDLER)
             {
-                CCommon::WriteLog(error_info, theApp.m_log_path.c_str());
+                return GetExceptionCode();
             }
         };
-
-        getHardwareInfo();
-        auto monitor_error_message{ OpenHardwareMonitorApi::GetErrorMessage() };
-        static std::wstring last_monitor_error;
-        if (!monitor_error_message.empty() && monitor_error_message != last_monitor_error)
+        const DWORD exception = sample();
+        const auto detail = OpenHardwareMonitorApi::GetErrorMessage();
+        if (exception != ERROR_SUCCESS || !detail.empty())
         {
-            CCommon::WriteLog(monitor_error_message.c_str(), theApp.m_log_path.c_str());
+            if (theApp.m_sensor_recovery.Failed())
+            {
+                CString message;
+                if (exception != ERROR_SUCCESS)
+                    message.Format(L"%s (0x%08lX)", CCommon::LoadText(IDS_HARDWARE_INFO_ACQUIRE_FAILED_ERROR).GetString(), exception);
+                else
+                    message = detail.c_str();
+                CCommon::WriteLog(message, theApp.m_log_path.c_str());
+            }
         }
-        last_monitor_error = monitor_error_message;
+        else
+            theApp.m_sensor_recovery.Succeeded();
         //theApp.m_cpu_temperature = theApp.m_pMonitor->CpuTemperature();
         theApp.m_gpu_temperature = theApp.m_pMonitor->GpuTemperature();
         //theApp.m_hdd_temperature = theApp.m_pMonitor->HDDTemperature();
@@ -1533,6 +1539,15 @@ void CTrafficMonitorDlg::DoMonitorAcquisition()
                 theApp.m_hdd_usage = -1;
             }
         }
+    }
+    else if (IsTemperatureNeeded() && theApp.m_active_hardware_items != 0)
+    {
+        theApp.m_sensor_recovery.Failed();
+        theApp.m_cpu_temperature = theApp.m_gpu_temperature = -1;
+        theApp.m_hdd_temperature = theApp.m_main_board_temperature = -1;
+        if (!gpu_usage_acquired) theApp.m_gpu_usage = -1;
+        if (!cpu_freq_acquired) theApp.m_cpu_freq = -1;
+        if (!m_get_disk_usage_by_pdh) theApp.m_hdd_usage = -1;
     }
 #endif
 

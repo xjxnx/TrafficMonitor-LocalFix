@@ -11,7 +11,7 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-TAG = 'v1.8.6.1-localfix.1'
+TAG = 'v1.8.6.2-localfix.1'
 
 
 def git(*args: str) -> bytes:
@@ -79,14 +79,16 @@ def main() -> None:
     subprocess.run(['git', '-C', str(ROOT), 'archive', '--format=zip',
                     '--prefix=TrafficMonitor-LocalFix-source/', '--output=' + str(source_zip), 'HEAD'], check=True)
     manifest = {
-        'release_tag': TAG, 'file_version': '1.8.6.1', 'source_commit': commit,
+        'release_tag': TAG, 'file_version': '1.8.6.2', 'source_commit': commit,
         'upstream_repository': 'https://github.com/zhongyang219/TrafficMonitor',
         'upstream_commit': '930f17533d6098989ebad62f210aa97d75ef174b',
         'hardware_library_version': '0.9.6',
         'tested_platform': 'Windows 10 x64',
         'tested_hardware': ['Intel i5-10400', 'NVIDIA RTX 3060'],
         'tested_pawnio_version': '2.2.0',
-        'cpu_temperature_test': {'samples': 15, 'minimum_celsius': 48.1, 'maximum_celsius': 50.4},
+        'cpu_temperature_test': {'samples': 15, 'minimum_celsius': 46.8, 'maximum_celsius': 48.3},
+        'gpu_temperature_test': {'samples': 15, 'minimum_celsius': 50, 'maximum_celsius': 51},
+        'taskbar_temperatures_verified': True,
         'build_toolset': 'VS2019 v142',
         'compatibility_defines': ['DISABLE_WINDOWS_WEB_EXPERIENCE_DETECTOR'],
         'full_taskbar_ui_verified': False, 'windows_11_verified': False,

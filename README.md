@@ -1,17 +1,17 @@
 # TrafficMonitor LocalFix
 
-[English](README_en-us.md) | [上游项目](https://github.com/zhongyang219/TrafficMonitor) | [下载修复版](https://github.com/xjxnx/TrafficMonitor-LocalFix/releases/tag/v1.8.6.1-localfix.1)
+[English](README_en-us.md) | [上游项目](https://github.com/zhongyang219/TrafficMonitor) | [下载修复版](https://github.com/xjxnx/TrafficMonitor-LocalFix/releases/tag/v1.8.6.2-localfix.1)
 
 基于 TrafficMonitor 的硬件温度监控修复分支，保留网速、CPU/内存占用、任务栏显示和皮肤功能，修复硬件采集、退出线程和网卡变化时的一批稳定性问题。
 
-当前版本：**1.8.6.1 / Local Fix 2026-11-06**。这是社区修复试用版，基于上游提交 `930f17533d6098989ebad62f210aa97d75ef174b`，并非上游作者的正式发行版。
+当前版本：**1.8.6.2 / Local Fix 2026-11-25**。这是社区修复试用版，基于上游提交 `930f17533d6098989ebad62f210aa97d75ef174b`，并非上游作者的正式发行版。
 
 ## 下载和使用
 
-从 [Release 页面](https://github.com/xjxnx/TrafficMonitor-LocalFix/releases/tag/v1.8.6.1-localfix.1) 下载：
+从 [Release 页面](https://github.com/xjxnx/TrafficMonitor-LocalFix/releases/tag/v1.8.6.2-localfix.1) 下载：
 
-- `TrafficMonitor-LocalFix-v1.8.6.1-localfix.1-windows-x64.zip`：Windows x64 便携包，解压即可使用。
-- `TrafficMonitor-LocalFix-v1.8.6.1-localfix.1-source.zip`：对应完整源码。
+- `TrafficMonitor-LocalFix-v1.8.6.2-localfix.1-windows-x64.zip`：Windows x64 便携包，解压即可使用。
+- `TrafficMonitor-LocalFix-v1.8.6.2-localfix.1-source.zip`：对应完整源码。
 - `SHA256SUMS.txt` 和 `build-info.json`：下载校验值与构建来源。
 
 1. 退出已经运行的 TrafficMonitor。
@@ -23,6 +23,8 @@
 
 ## 主要修复
 
+- 1.8.6.2 修复显卡读取异常时 CPU 温度也消失的问题。程序按设备采集，连续三次失败后重新打开采集器。故障持续时两次重试至少间隔一分钟，同一次故障只写一次日志。
+
 - 硬件库更新至 LibreHardwareMonitor **0.9.6**，移除旧 WinRing0 后端，程序包不携带 `.sys` 文件。
 - 硬件初始化、重新配置和关闭归到同一采集线程；使用 Windows 事件唤醒，改善退出和设置时的阻塞问题。
 - 修复网卡表指针初始化、扩容失败处理、刷新同步及接口数量变化检测。
@@ -31,7 +33,7 @@
 
 ## 验证范围
 
-已在 Windows 10 x64、Intel i5-10400、NVIDIA RTX 3060 上完成构建和回归。安装官方 PawnIO 2.2.0 后，15 次 CPU 温度采集为 **48.1–50.4°C**，CPU 频率约 4.006GHz，显卡温度约 50–51°C。
+已在 Windows 10 x64、Intel i5-10400、NVIDIA RTX 3060 上完成构建和回归。使用 PawnIO 2.2.0 连续采样 15 次，CPU 为 **46.8–48.3°C**，显卡为 **50–51°C**。任务栏已确认显示两项温度。
 
 线程、网卡缓冲区、模拟传感器和多轮硬件启停测试已通过。完整任务栏交互和 Windows 11 兼容性尚未完成验证，也没有证据证明所有历史崩溃原因均已消除。详细范围见 [LOCAL_FIX.md](LOCAL_FIX.md)。
 

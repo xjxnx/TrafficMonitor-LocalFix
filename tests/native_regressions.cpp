@@ -1,6 +1,7 @@
 #include <Windows.h>
 #include <iphlpapi.h>
 #include <atomic>
+#include "../TrafficMonitor/HardwareMonitorRecovery.h"
 #include <cstdio>
 #include <cstdlib>
 #include <thread>
@@ -95,6 +96,13 @@ int main()
         DestroyWindow(window);
         UnregisterClassW(cls.lpszClassName, nullptr);
     }
+    HardwareMonitorRecovery recovery;
+    Check(recovery.Failed() && !recovery.TakeRetry(0), "log first sensor failure without reopening");
+    Check(!recovery.Failed() && !recovery.TakeRetry(1000), "ignore second transient failure");
+    Check(!recovery.Failed() && recovery.TakeRetry(2000), "reopen after persistent sensor failure");
+    Check(!recovery.Failed() && !recovery.TakeRetry(61999) && recovery.TakeRetry(62000), "persistent errors remain quiet and retries are bounded");
+    recovery.Succeeded();
+    Check(!recovery.TakeRetry(130000) && recovery.Failed(), "healthy sample ends incident");
     MIB_IFTABLE* table = nullptr;
     DWORD size = sizeof(MIB_IFTABLE);
     reads = 0;
